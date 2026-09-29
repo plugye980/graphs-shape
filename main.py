@@ -29,14 +29,14 @@ TOKENS = {
         "sky-text": "#8cc7e8", "sky-text-b": "#6ba8cc",
         "brass": "#d3a869", "brass-text": "#e0b878", "brass-text-b": "#bd9557",
         "brass-glow": "rgba(211, 168, 105, 0.5)",
-        "hi": "rgba(255, 255, 255, 0.055)", "lo": "rgba(0, 0, 0, 0.55)",
+        "hi": "rgba(255, 255, 255, 0.055)", "hi-strong": "rgba(255, 255, 255, 0.10)", "lo": "rgba(0, 0, 0, 0.55)",
         "lo-strong": "rgba(0, 0, 0, 0.7)",
         "inset-lo": "rgba(0, 0, 0, 0.34)", "edge-lo": "rgba(0, 0, 0, 0.45)",
         "wash-1": "rgba(120, 165, 205, 0.055)", "wash-2": "rgba(200, 165, 105, 0.03)",
         "tag": "rgba(255, 255, 255, 0.08)",
         "grid": "rgba(255, 255, 255, 0.06)",
         # 작은 장르(기타) — 무채색 단계
-        "other-hi": "#7d8591", "other-lo": "#4a5059",
+        "other-hi": "#6d7784", "other-lo": "#474f59",
     },
     "light": {
         "page-a": "#f5fbff", "page-b": "#fbfeff", "page-c": "#eff7fe",
@@ -48,21 +48,23 @@ TOKENS = {
         "sky-text": "#217aa8", "sky-text-b": "#175d84",
         "brass": "#c08f39", "brass-text": "#8d6a22", "brass-text-b": "#6f521a",
         "brass-glow": "rgba(192, 143, 57, 0.46)",
-        "hi": "rgba(255, 255, 255, 1)", "lo": "rgba(124, 164, 204, 0.24)",
+        "hi": "rgba(255, 255, 255, 1)", "hi-strong": "#ffffff", "lo": "rgba(124, 164, 204, 0.24)",
         "lo-strong": "rgba(110, 152, 194, 0.34)",
         "inset-lo": "rgba(116, 152, 192, 0.32)", "edge-lo": "rgba(112, 150, 192, 0.42)",
         "wash-1": "rgba(115, 170, 210, 0.075)", "wash-2": "rgba(185, 150, 90, 0.035)",
         "tag": "rgba(66, 104, 140, 0.14)",
         "grid": "rgba(66, 104, 140, 0.10)",
-        "other-hi": "#8a9aa6", "other-lo": "#c3ced7",
+        "other-hi": "#7b8896", "other-lo": "#c2d7e9",
     },
 }
 
-# 장르 색 — 편수가 많은 순서로 고정된 자리에 앉는다(순위가 아니라 장르를 따른다).
-# 색각 이상 시뮬레이션·명도 대역·대비를 검사기로 확인한 조합
+# 장르 색 — 디자인 팔레트(하늘색·황동색 계열과 능선의 회청색) 안에서만 고른다.
+# 하늘색과 황동색 계열을 번갈아 놓아 이웃한 장르가 섞이지 않게 하고,
+# 편수가 많은 순서로 고정된 자리에 앉는다(순위가 아니라 장르를 따른다).
 SERIES = {
-    "dark": ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9"],
-    "light": ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7"],
+    #        sky        brass      d1         d3         r2         sky-b      brass-b
+    "dark": ["#7bb9de", "#d3a869", "#47738f", "#90703f", "#99a4b1", "#5e93b9", "#b08a4f"],
+    "light": ["#3fa3d6", "#c08f39", "#42718f", "#7d6232", "#a8b8c5", "#2b86b8", "#9a7128"],
 }
 
 
@@ -119,6 +121,12 @@ header[data-testid="stHeader"] {{ background: transparent; }}
   padding: 2.4rem 1rem 4rem;
 }}
 *, *::before, *::after {{ outline: 0; }}
+/* 한국어는 낱말 단위로 줄을 바꾼다 */
+.stApp p, .stApp h1, .stApp h2, .stApp h3, .stApp span, .stApp textarea, .stApp .stMarkdown {{
+  word-break: keep-all !important;
+  overflow-wrap: break-word !important;
+  line-break: strict;
+}}
 ::selection {{ background: var(--sky-soft); color: var(--text-a); }}
 
 /* 글자 — 같은 색에서 농도만 내려가는 기울기 */
@@ -251,9 +259,14 @@ header[data-testid="stHeader"] {{ background: transparent; }}
 }}
 [class*="st-key-well-"] [data-testid="stPlotlyChart"] {{ background: transparent; }}
 /* 도넛 조각은 판 위로 떠 있다 — 윗면에 빛, 아래에 그늘 */
-[class*="st-key-well-"] .barlayer path,
-[class*="st-key-well-"] .slice path.surface {{
-  filter: drop-shadow(0 -1px 0 var(--hi)) drop-shadow(0 4px 6px var(--lo));
+/* 데이터 면 — 선으로 가르지 않고, 윗면의 빛과 아래 그늘로 한 단 띄운다 */
+[class*="st-key-well-"] .barlayer .trace,
+[class*="st-key-well-"] .treemaplayer path.surface,
+[class*="st-key-well-"] .scatterlayer .trace {{
+  filter: drop-shadow(0 -1px 0 var(--hi-strong)) drop-shadow(0 3px 4px var(--lo));
+}}
+[class*="st-key-well-genre"] .barlayer .trace {{
+  filter: drop-shadow(0 -1px 0 var(--hi-strong)) drop-shadow(0 5px 7px var(--lo-strong));
 }}
 .js-plotly-plot .hoverlayer .hovertext path {{
   filter: drop-shadow(0 6px 12px var(--lo));
@@ -298,6 +311,7 @@ header[data-testid="stHeader"] {{ background: transparent; }}
   color: var(--text-b) !important;
   -webkit-text-fill-color: var(--text-b);
   caret-color: var(--sky);
+  resize: none !important;
   padding: 1rem 1.2rem !important;
 }}
 [class*="st-key-note-"] textarea::placeholder {{ color: var(--dim-a); -webkit-text-fill-color: var(--dim-a); }}
@@ -436,7 +450,7 @@ def insight(key, suggestion):
         key=f"note-{key}",
         label_visibility="collapsed",
         placeholder="이곳에 한 문장을 적어 주세요.",
-        height=140,
+        height=120,
     )
 
 
@@ -509,7 +523,7 @@ def base_layout(t, height):
 
 def axis(t, **kw):
     return dict(
-        gridcolor=t["grid"], zeroline=False, showline=False,
+        showgrid=False, zeroline=False, showline=False,
         tickfont=dict(color=t["dim-a"], size=12), title_font=dict(color=t["body-b"], size=13),
         **kw,
     )
@@ -539,7 +553,7 @@ def genre_donut(df, t, order, colors):
                 base=[hole],
                 theta=[start + span / 2],
                 width=[span],
-                marker=dict(color=colors[g], line=dict(color=t["well"], width=2.5)),
+                marker=dict(color=colors[g], line=dict(width=0)),
                 customdata=[[c, share, tier]],
                 hovertemplate=f"<b>{g}</b><br>%{{customdata[0]}}편 · %{{customdata[1]:.1%}}<extra></extra>",
             )
@@ -589,13 +603,13 @@ def genre_treemap(df, t, order, colors):
         go.Treemap(
             ids=ids, labels=labels, parents=parents, values=values,
             branchvalues="total",
-            marker=dict(colors=fills, line=dict(color=t["well"], width=2), pad=dict(t=26, l=3, r=3, b=3)),
+            marker=dict(colors=fills, line=dict(width=0), pad=dict(t=26, l=4, r=4, b=4)),
             customdata=hover,
             hovertemplate="%{customdata}<extra></extra>",
             texttemplate="%{label}",
-            textfont=dict(family="Pretendard Variable, Pretendard, sans-serif", size=14, color="#ffffff"),
+            textfont=dict(family="Pretendard Variable, Pretendard, sans-serif", size=14),
             pathbar=dict(visible=False),
-            tiling=dict(packing="squarify", pad=2),
+            tiling=dict(packing="squarify", pad=4),
             root=dict(color="rgba(0,0,0,0)"),
             sort=True,
         )
@@ -620,7 +634,7 @@ def audience_hist(df, t, theme):
     edges = np.arange(0, audi.max() + width, width)
     counts, edges = np.histogram(audi, bins=edges)
     peak = int(counts.argmax())
-    blue, orange = SERIES[theme][0], SERIES[theme][1]
+    blue, orange = t["sky"], t["brass"]
 
     fig = go.Figure(
         go.Bar(
@@ -643,7 +657,7 @@ def audience_hist(df, t, theme):
         **base_layout(t, 420),
         showlegend=False,
         bargap=0,
-        xaxis=axis(t, title="총 관객 (명)", tickvals=ticks, ticktext=[man(v) for v in ticks], showgrid=False),
+        xaxis=axis(t, title="총 관객 (명)", tickvals=ticks, ticktext=[man(v) for v in ticks]),
         yaxis=axis(t, title="영화 편수"),
     )
     fig.update_layout(margin=dict(l=64, r=16, t=16, b=56))
@@ -664,7 +678,7 @@ def screen_scatter(df, t, order, colors, log):
         fig.add_trace(
             go.Scatter(
                 x=d["first_scrn"], y=d["total_audi"], mode="markers", name=g,
-                marker=dict(size=10, color=colors[g], opacity=0.9, line=dict(color=t["well"], width=1.5)),
+                marker=dict(size=10, color=colors[g], opacity=0.92, line=dict(width=0)),
                 customdata=np.stack([d["movieNm"], d["genre"]], axis=-1),
                 hovertemplate="<b>%{customdata[0]}</b><br>%{customdata[1]}"
                 "<br>개봉일 스크린 %{x:,}개 · 총 관객 %{y:,}명<extra></extra>",
@@ -711,7 +725,7 @@ html(
   <p class="fx eyebrow">그래프 도감 &middot; 2</p>
   <h1 class="fx display"><span class="line">영화 데이터 그래프 도감 2</span><span class="line">- 분포와 관계</span></h1>
   <p class="fx lede">1년간 박스오피스 10위권에 든 영화 가운데 이 기간에 개봉한
-  {len(movies)}편의 요약표입니다. 장르마다 같은 색을 끝까지 쓰므로, 한 그래프에서 본 색을 다음 그래프에서도 찾을 수 있습니다.</p>
+  {len(movies)}편의 요약표입니다.</p>
   <p class="fx meta"><b>{len(movies)}</b>편 &middot; 개봉 {first:%Y.%m.%d} – {last:%Y.%m.%d}</p>
 </section>
 """
@@ -722,9 +736,9 @@ counts = movies["genre"].value_counts()
 with st.container(key="band-genre"):
     band_head(
         "01", "장르별 영화 편수",
-        "여러 장르가 적힌 영화는 첫 번째 장르로 셉니다. 조각이 차지하는 면적이 클수록 한 단씩 더 "
-        "높이 올라와 있고, 조각에 마우스를 올리면 편수와 비율이 보입니다.",
-        "장르 분포", "도넛 · 편수 기준 · 4단",
+        "여러 장르가 적힌 영화는 첫 번째 장르로 셉니다. 비율이 클수록 조각이 더 높이 올라와 있고, "
+        "조각에 마우스를 올리면 편수와 비율이 보입니다.",
+        "장르 분포", "도넛 · 편수 기준",
     )
     chart(genre_donut(movies, tokens, order, colors), "genre")
     g1, g2 = counts.index[0], counts.index[1]
@@ -816,7 +830,7 @@ html(
     """
 <footer class="foot">
   <p class="fx foot-name">영화 데이터 그래프 도감 2 &middot; 분포와 관계</p>
-  <p class="fx meta">자료 KOBIS 박스오피스 &middot; 무채색 바탕 &middot; 단차와 장르 색</p>
+  <p class="fx meta">자료 KOBIS 박스오피스</p>
 </footer>
 """
 )
