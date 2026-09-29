@@ -7,9 +7,7 @@
 """
 
 import html as htmlib
-import json
 import re
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -269,37 +267,6 @@ header[data-testid="stHeader"] {{ background: transparent; }}
   line-height: 1.8;
   background-image: linear-gradient(150deg, var(--text-a), var(--text-b));
 }}
-/* 적는 자리 — 한 단 파인 면 */
-[class*="st-key-note-"] [data-testid="stTextAreaRootElement"] {{
-  border: 0 !important;
-  background: var(--well-2) !important;
-  border-radius: 14px;
-  box-shadow: var(--inset-sm);
-}}
-[class*="st-key-note-"] [data-testid="stTextAreaRootElement"] *,
-[class*="st-key-note-"] textarea {{ background: transparent !important; background-color: transparent !important; }}
-[class*="st-key-note-"] textarea {{
-  font-family: var(--ui) !important;
-  font-size: clamp(1.02rem, 1.5vw, 1.15rem) !important;
-  font-weight: 400;
-  line-height: 1.8 !important;
-  color: var(--text-b) !important;
-  -webkit-text-fill-color: var(--text-b);
-  caret-color: var(--sky);
-  resize: none !important;
-  field-sizing: content;
-  height: auto !important;
-  min-height: 4.2rem;
-  padding: 1rem 1.2rem !important;
-}}
-[class*="st-key-note-"] textarea::placeholder {{ color: var(--dim-a); -webkit-text-fill-color: var(--dim-a); }}
-[class*="st-key-note-"] [data-testid="stTextAreaRootElement"]:focus-within {{
-  box-shadow: var(--inset-sm), 0 0 0 3px var(--sky-soft);
-}}
-[class*="st-key-note-"] [data-testid="InputInstructions"] {{ display: none; }}
-[class*="st-key-note-"] [data-testid="stTextAreaRootElement"] {{ height: auto !important; }}
-[class*="st-key-note-"] {{ margin-top: 0.9rem; }}
-
 /* 그래프 아래 읽을거리 */
 .readout {{
   display: grid;
@@ -392,37 +359,25 @@ def band_head(no, title, lede, cap_title, cap_note):
     )
 
 
-NOTES_PATH = Path(__file__).with_name("notes.json")
+# 그래프마다 '이 그래프로 알 수 있는 것' 한 문장
+INSIGHTS = {
+    "genre": "애니메이션(57편)과 드라마(54편)가 전체 216편 중 51%를 차지해, "
+    "두 장르가 박스오피스 10위권 영화의 절반을 넘는다",
+    "tree": "애니메이션은 편수와 관객 수 모두 1위로 전체 관객의 25%를 차지하지만, "
+    "영화 한 편으로는 사극 장르의 '왕과 사는 남자'가 가장 큰 칸이다",
+    "hist": "총 관객은 한쪽으로 크게 치우쳐 있으며 절반의 영화는 3.3만명을 넘지 못하지만 "
+    "'왕과 사는 남자' 같은 몇 편이 수백만 명 이상을 모은다",
+    "scatter": "개봉일 스크린이 100개 이상인 126편만 보면 스크린이 많을수록 총 관객도 많은 뚜렷한 경향이 있고, "
+    "'왕과 사는 남자'처럼 적은 스크린(29개)으로 시작해 크게 흥행한 영화도 있다",
+    "anim": "애니메이션 57편의 누적 관객은 2,540만명이며 그중 '주토피아 2' 한 편이 34%를 차지해 "
+    "누적 곡선이 그 시점에 가장 크게 뛰어오른다",
+}
 
 
-def load_notes():
-    try:
-        return json.loads(NOTES_PATH.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
-
-
-def save_note(key):
-    """고쳐 쓴 문장을 파일에 남긴다 — 새 창을 열어도, 앱을 다시 띄워도 그대로 남는다."""
-    notes = load_notes()
-    notes[key] = st.session_state[f"note-{key}"]
-    tmp = NOTES_PATH.with_suffix(".tmp")
-    tmp.write_text(json.dumps(notes, ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp.replace(NOTES_PATH)
-
-
-def insight(key, suggestion):
-    """이 그래프로 알 수 있는 것 — 저장된 문장이 있으면 그것을, 없으면 데이터에서 뽑은 문장을 보여 준다."""
-    html('<div class="insight"><p class="fx insight-label">이 그래프로 알 수 있는 것</p></div>')
-    st.text_area(
-        "이 그래프로 알 수 있는 것",
-        value=load_notes().get(key, suggestion),
-        key=f"note-{key}",
-        label_visibility="collapsed",
-        placeholder="이곳에 한 문장을 적어 주세요.",
-        height="content",
-        on_change=save_note,
-        args=(key,),
+def insight(key):
+    html(
+        '<div class="insight"><p class="fx insight-label">이 그래프로 알 수 있는 것</p>'
+        f'<p class="fx insight-text">{htmlib.escape(INSIGHTS[key])}</p></div>'
     )
 
 
@@ -836,7 +791,7 @@ def animation_svg(df, t, genre="애니메이션"):
         ) + "</g>"
         parts.append(f'<g class="pt"><circle class="hit" cx="{x:.1f}" cy="{y:.1f}" r="13" />{dot}{tip}</g>')
 
-    defs = f"""
+    defs = """
 <defs>
   <linearGradient id="a-plateau" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0%" stop-color="#2f353c" /><stop offset="62%" stop-color="#2f353c" /><stop offset="100%" stop-color="#1d2024" />
@@ -889,7 +844,6 @@ html(
 )
 
 # 01 — 장르별 영화 편수
-counts = movies["genre"].value_counts()
 with st.container(key="band-genre"):
     band_head(
         "01", "장르별 영화 편수",
@@ -899,16 +853,9 @@ with st.container(key="band-genre"):
     )
     html(donut_depth_css(len(order)))
     chart(genre_donut(movies, tokens, order, colors), "genre")
-    g1, g2 = counts.index[0], counts.index[1]
-    insight(
-        "genre",
-        f"{g1}({counts.iloc[0]}편){josa(g1, '과와')} {g2}({counts.iloc[1]}편){josa(g2, '이가')} 전체 {counts.sum()}편 중 "
-        f"{(counts.iloc[0] + counts.iloc[1]) / counts.sum():.0%}를 차지해, 두 장르가 박스오피스 10위권 영화의 절반을 넘습니다.",
-    )
+    insight("genre")
 
 # 02 — 장르 안의 영화 (트리맵)
-by_genre = movies.groupby("genre")["total_audi"].sum().sort_values(ascending=False)
-top_movie = movies.loc[movies["total_audi"].idxmax()]
 with st.container(key="band-tree"):
     band_head(
         "02", "장르 안의 영화",
@@ -917,17 +864,7 @@ with st.container(key="band-tree"):
         "관객으로 본 장르", "트리맵 · 총 관객 기준",
     )
     chart(genre_treemap(movies, tokens, order, colors), "tree")
-    big = by_genre.index[0]
-    lead = (
-        f"{big}{josa(big, '은는')} 편수와 관객 수 모두 1위로, 전체 관객의 {by_genre.iloc[0] / by_genre.sum():.0%}를 차지하지만"
-        if big == counts.index[0]
-        else f"편수는 {counts.index[0]}{josa(counts.index[0], '이가')} 가장 많지만 관객 수로는 "
-        f"{big}{josa(big, '이가')} {by_genre.iloc[0] / by_genre.sum():.0%}로 가장 크고"
-    )
-    insight(
-        "tree",
-        f"{lead}, 영화 한 편으로는 {top_movie['genre']} 장르의 '{top_movie['movieNm']}'가 가장 큰 칸입니다.",
-    )
+    insight("tree")
 
 # 03 — 총 관객 히스토그램
 fig_hist, h = audience_hist(movies, tokens)
@@ -955,12 +892,7 @@ with st.container(key="band-hist"):
 </div>
 """
     )
-    median = movies["total_audi"].median()
-    insight(
-        "hist",
-        f"총 관객은 한쪽으로 크게 치우쳐 있어, 절반의 영화는 {man(median)}명을 넘지 못하지만 "
-        f"'{h['top_name']}' 같은 몇 편이 수백만 명 이상을 모읍니다.",
-    )
+    insight("hist")
 
 # 04 — 스크린 수와 총 관객 (산점도)
 with st.container(key="band-scatter"):
@@ -972,19 +904,10 @@ with st.container(key="band-scatter"):
     )
     log = st.toggle("로그 눈금으로 보기", value=True, key="log-scatter")
     chart(screen_scatter(movies, tokens, order, colors, log), "scatter")
-    def log_r(d):
-        return np.corrcoef(np.log10(d["first_scrn"].clip(lower=1)), np.log10(d["total_audi"].clip(lower=1)))[0, 1]
-
-    wide = movies[movies["first_scrn"] >= 100]
-    insight(
-        "scatter",
-        f"전체로 보면 관계가 약하지만(로그 눈금 상관계수 {log_r(movies):.2f}), 개봉일 스크린이 100개 이상인 "
-        f"{len(wide)}편만 보면 스크린이 많을수록 총 관객도 많은 뚜렷한 경향({log_r(wide):.2f})이 있고, "
-        f"'{top_movie['movieNm']}'처럼 적은 스크린({top_movie['first_scrn']}개)으로 시작해 크게 흥행한 영화도 있습니다.",
-    )
+    insight("scatter")
 
 # 05 — 애니메이션 누적 관객
-anim_svg, anim, anim_top = animation_svg(movies, tokens)
+anim_svg, anim, _ = animation_svg(movies, tokens)
 with st.container(key="band-anim"):
     band_head(
         "05", "애니메이션 누적 관객",
@@ -994,13 +917,7 @@ with st.container(key="band-anim"):
     )
     html(ANIM_CSS)
     html(anim_svg)
-    cum_total = int(anim["cum"].iloc[-1])
-    insight(
-        "anim",
-        f"애니메이션 {len(anim)}편의 누적 관객은 {man(cum_total)}명이며, 그중 "
-        f"'{anim_top['movieNm']}' 한 편({anim_top['openDt']:%Y.%m.%d} 개봉)이 "
-        f"{anim_top['total_audi'] / cum_total:.0%}를 차지해 누적 곡선이 그 시점에 가장 크게 뛰어오릅니다.",
-    )
+    insight("anim")
 
 stair(even=True)
 html(
