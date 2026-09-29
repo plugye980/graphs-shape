@@ -7,7 +7,9 @@
 """
 
 import html as htmlib
+import json
 import re
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -390,16 +392,37 @@ def band_head(no, title, lede, cap_title, cap_note):
     )
 
 
+NOTES_PATH = Path(__file__).with_name("notes.json")
+
+
+def load_notes():
+    try:
+        return json.loads(NOTES_PATH.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def save_note(key):
+    """고쳐 쓴 문장을 파일에 남긴다 — 새 창을 열어도, 앱을 다시 띄워도 그대로 남는다."""
+    notes = load_notes()
+    notes[key] = st.session_state[f"note-{key}"]
+    tmp = NOTES_PATH.with_suffix(".tmp")
+    tmp.write_text(json.dumps(notes, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(NOTES_PATH)
+
+
 def insight(key, suggestion):
-    """이 그래프로 알 수 있는 것 — 데이터에서 뽑은 문장을 채워 두고, 직접 고쳐 쓸 수 있다."""
+    """이 그래프로 알 수 있는 것 — 저장된 문장이 있으면 그것을, 없으면 데이터에서 뽑은 문장을 보여 준다."""
     html('<div class="insight"><p class="fx insight-label">이 그래프로 알 수 있는 것</p></div>')
     st.text_area(
         "이 그래프로 알 수 있는 것",
-        value=suggestion,
+        value=load_notes().get(key, suggestion),
         key=f"note-{key}",
         label_visibility="collapsed",
         placeholder="이곳에 한 문장을 적어 주세요.",
         height="content",
+        on_change=save_note,
+        args=(key,),
     )
 
 
