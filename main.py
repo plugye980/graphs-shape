@@ -6,6 +6,8 @@
 - 빛은 언제나 위에서 온다
 """
 
+import html as htmlib
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -282,6 +284,9 @@ header[data-testid="stHeader"] {{ background: transparent; }}
   -webkit-text-fill-color: var(--text-b);
   caret-color: var(--sky);
   resize: none !important;
+  field-sizing: content;
+  height: auto !important;
+  min-height: 4.2rem;
   padding: 1rem 1.2rem !important;
 }}
 [class*="st-key-note-"] textarea::placeholder {{ color: var(--dim-a); -webkit-text-fill-color: var(--dim-a); }}
@@ -289,6 +294,7 @@ header[data-testid="stHeader"] {{ background: transparent; }}
   box-shadow: var(--inset-sm), 0 0 0 3px var(--sky-soft);
 }}
 [class*="st-key-note-"] [data-testid="InputInstructions"] {{ display: none; }}
+[class*="st-key-note-"] [data-testid="stTextAreaRootElement"] {{ height: auto !important; }}
 [class*="st-key-note-"] {{ margin-top: 0.9rem; }}
 
 /* 그래프 아래 읽을거리 */
@@ -386,7 +392,7 @@ def insight(key, suggestion):
         key=f"note-{key}",
         label_visibility="collapsed",
         placeholder="이곳에 한 문장을 적어 주세요.",
-        height=120,
+        height="content",
     )
 
 
@@ -645,49 +651,185 @@ def screen_scatter(df, t, order, colors, log):
 
 
 # ---------------------------------------------------------------- 05 애니메이션 누적 관객
-def animation_cumulative(df, t, genre="애니메이션"):
+# 자료 페이지의 면적 그래프를 그대로 옮긴다 — 면(plateau) + 능선의 빛·그늘 + 세 단의 계단(step-face),
+# 능선 색은 왼쪽 하늘색에서 오른쪽 황동색으로 옮겨 간다. Plotly로는 겹 구조를 못 그려 SVG로 직접 그린다.
+ANIM_CSS = """
+<style>
+.area-well { background: var(--well); border-radius: var(--radius); box-shadow: var(--inset); overflow: hidden; }
+.c-area { display: block; width: 100%; height: auto; overflow: hidden; }
+.c-area .face { filter: url(#a-chroma); }
+.c-area .ridge { fill: none; stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; }
+.c-area .ridge-lit { fill: none; stroke: rgba(255, 255, 255, 0.4); stroke-width: 1.8; stroke-linejoin: round; transform: translateY(-1.7px); }
+.c-area .ridge-shade { fill: none; stroke: rgba(0, 0, 0, 0.75); stroke-width: 8; stroke-linejoin: round; transform: translate(2px, 6px); filter: blur(4.5px); }
+.c-area .step-face { fill: #2a3037; }
+.c-area .step-face.step-c { fill: #252a31; }
+.c-area .step-lit { fill: none; stroke: rgba(255, 255, 255, 0.4); stroke-width: 1.1; opacity: 0.3; transform: translateY(-1.4px); }
+.c-area .step-edge { fill: none; stroke: #474f59; stroke-width: 1.4; stroke-linejoin: round; }
+.c-area .step-shade { fill: none; stroke: rgba(0, 0, 0, 0.75); stroke-width: 6; opacity: 0.5; transform: translate(1.5px, 4px); filter: blur(4px); }
+.c-area .ridge-mark { fill: none; stroke-width: 2.6; stroke-linecap: round; }
+.c-area text { font-family: var(--ui); }
+.c-area .v-tag { font-size: 30px; font-weight: 300; letter-spacing: 0.14em; fill: rgba(255, 255, 255, 0.08); }
+.c-area .v-axis { font-size: 13px; letter-spacing: 0.2em; fill: var(--dim-b); }
+.c-area .v-peak { font-size: 19px; font-weight: 500; letter-spacing: 0.04em; fill: var(--brass-text); }
+.c-area .v-jump { font-size: 14px; font-weight: 500; letter-spacing: 0.04em; fill: var(--brass-text); }
+.c-area .dot { filter: drop-shadow(0 -1px 0 rgba(255,255,255,0.12)) drop-shadow(0 2px 3px rgba(0,0,0,0.6)); }
+.c-area .dot-peak { fill: var(--brass); filter: drop-shadow(0 0 7px var(--brass-glow)); }
+.c-area .hit { fill: transparent; cursor: pointer; }
+.c-area .tip { opacity: 0; pointer-events: none; transition: opacity 0.2s var(--ease); }
+.c-area .pt:hover .tip { opacity: 1; }
+.c-area .pt:hover .dot { transform-box: fill-box; transform-origin: center; transform: scale(1.5); }
+.c-area .tip rect { fill: var(--surface); filter: drop-shadow(0 -1px 0 rgba(255,255,255,0.06)) drop-shadow(0 8px 14px rgba(0,0,0,0.55)); }
+.c-area .tip .t1 { font-size: 15px; font-weight: 500; fill: var(--text-a); }
+.c-area .tip .t2 { font-size: 13px; fill: var(--body-a); }
+.c-area .tip .t3 { font-size: 13px; fill: var(--sky-text); }
+@media (max-width: 720px) {
+  .c-area .v-axis { font-size: 24px; letter-spacing: 0.1em; }
+  .c-area .v-peak { font-size: 30px; }
+  .c-area .v-jump { font-size: 22px; }
+}
+</style>
+"""
+
+
+def hex_mix(stops, r):
+    """여러 색 사이를 r(0~1)로 옮겨 간다."""
+    r = min(max(r, 0.0), 1.0) * (len(stops) - 1)
+    i = min(int(r), len(stops) - 2)
+    return blend(stops[i], stops[i + 1], r - i)
+
+
+def animation_svg(df, t, genre="애니메이션"):
     d = df[df["genre"] == genre].sort_values(["openDt", "total_audi"]).reset_index(drop=True)
     d["cum"] = d["total_audi"].cumsum()
-    jump = int(d["total_audi"].idxmax())  # 한 번에 가장 크게 오른 계단
+    jump = int(d["total_audi"].idxmax())
 
-    fig = go.Figure()
-    # 계단 면 — 개봉일마다 그 영화의 총 관객만큼 한 단 올라간다
-    fig.add_trace(
-        go.Scatter(
-            x=d["openDt"], y=d["cum"], mode="lines", line_shape="hv",
-            line=dict(color=t["sky"], width=2.4),
-            fill="tozeroy", fillcolor=t["tier-1"],
-            hoverinfo="skip", showlegend=False,
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=d["openDt"], y=d["cum"], mode="markers", showlegend=False,
-            marker=dict(
-                size=[13 if i == jump else 7 for i in range(len(d))],
-                color=[t["brass"] if i == jump else t["sky"] for i in range(len(d))],
-                line=dict(width=0),
-            ),
-            customdata=np.stack([d["movieNm"], d["openDt"].dt.strftime("%Y.%m.%d"), d["total_audi"]], axis=-1),
-            hovertemplate="<b>%{customdata[0]}</b><br>개봉 %{customdata[1]}"
-            "<br>관객 %{customdata[2]:,}명 · 누적 %{y:,}명<extra></extra>",
-        )
-    )
+    W, H, left, right = 1000, 340, 24, 976
+    y0, y1 = 292, 58  # 0명과 최댓값이 놓이는 높이
+    start = d["openDt"].min() - pd.Timedelta(days=6)
+    end = d["openDt"].max() + pd.Timedelta(days=6)
+    span = (end - start).days
+    X = lambda dt: left + (right - left) * (dt - start).days / span
+    peak = d["cum"].iloc[-1]
+    Y = lambda v: y0 - (y0 - y1) * v / peak
+
+    # 능선 — 개봉일마다 그 영화의 관객만큼 한 단 올라가는 계단
+    pts = [(-12.0, Y(0))]
+    vertex = []
+    for _, m in d.iterrows():
+        x = X(m["openDt"])
+        pts.append((x, pts[-1][1]))
+        pts.append((x, Y(m["cum"])))
+        vertex.append((x, Y(m["cum"])))
+    pts.append((W + 12.0, pts[-1][1]))
+
+    def off_b(x):  # 계단 사이 간격은 물결처럼 어긋난다
+        return 20 + 7 * np.sin(x / 150 + 0.6)
+
+    def off_c(x):
+        return off_b(x) + 18 + 6 * np.sin(x / 110 + 1.9)
+
+    def line(points):
+        return "M " + " L ".join(f"{x:.1f} {min(y, H + 12):.1f}" for x, y in points)
+
+    def closed(points):
+        return line(points) + f" L {W + 12} {H + 12} L -12 {H + 12} Z"
+
+    ridge = pts
+    step_b = [(x, y + off_b(x)) for x, y in pts]
+    step_c = [(x, y + off_c(x)) for x, y in pts]
+
+    # 마디 — 가장 크게 오른 계단 한 칸을 같은 계열의 낮은 명도로 짚는다
+    seg_len = [0.0] + [abs(x2 - x1) + abs(y2 - y1) for (x1, y1), (x2, y2) in zip(pts, pts[1:])]
+    cum_len = np.cumsum(seg_len)
+    total_len = cum_len[-1]
+    j = 2 + 2 * jump  # 그 영화의 세로 한 칸이 끝나는 점
+    mark_from, mark_to = cum_len[j - 2], cum_len[min(j + 1, len(cum_len) - 1)]
+
+    ridge_d = line(ridge)
+    parts = [
+        f'<path class="face" fill="url(#a-plateau)" d="{closed(ridge)}" />',
+        f'<path class="ridge-shade" d="{ridge_d}" />',
+        f'<path class="ridge-lit" d="{ridge_d}" />',
+    ]
+    for cls, pts_ in (("step-b", step_b), ("step-c", step_c)):
+        ld = line(pts_)
+        parts += [
+            f'<path class="step-face {cls}" d="{closed(pts_)}" />',
+            f'<path class="step-shade" d="{ld}" />',
+            f'<path class="step-edge" d="{ld}" />',
+            f'<path class="step-lit" d="{ld}" />',
+        ]
+    parts += [
+        f'<path class="ridge" stroke="url(#a-ridge)" d="{ridge_d}" />',
+        f'<path class="ridge-mark" stroke="url(#a-deep)" pathLength="{total_len:.1f}" '
+        f'stroke-dasharray="{mark_to - mark_from:.1f} 99999" stroke-dashoffset="{-mark_from:.1f}" d="{ridge_d}" />',
+    ]
+
+    # 눈금 — 두 달마다
+    months = pd.date_range(start.normalize().replace(day=1), end, freq="MS")
+    for i, mth in enumerate(months):
+        if mth < start or i % 2:
+            continue
+        label = f"{mth:%Y.%m}" if (i == 0 or mth.month == 1) else f"{mth.month}월"
+        parts.append(f'<text class="v-axis" x="{X(mth):.1f}" y="324" text-anchor="middle">{label}</text>')
+    parts.append(f'<text class="v-tag" x="{right - 12}" y="324" text-anchor="end">ANIMATION</text>')
+    parts.append(f'<text class="v-peak" x="{right - 6}" y="{Y(peak) - 16:.1f}" text-anchor="end">{man(peak)}명</text>')
+    jx, jy = vertex[jump]
     top = d.loc[jump]
-    fig.add_annotation(
-        x=top["openDt"], y=top["cum"], text=f"{top['movieNm']}  +{man(top['total_audi'])}명",
-        showarrow=False, xanchor="right", yanchor="bottom", xshift=-10, yshift=6,
-        font=dict(color=t["brass-text"], size=14),
+    parts.append(
+        f'<text class="v-jump" x="{jx - 12:.1f}" y="{jy - 12:.1f}" text-anchor="end">'
+        f'{htmlib.escape(top["movieNm"])} +{man(top["total_audi"])}명</text>'
     )
-    tick = nice_width(d["cum"].max(), 6)
-    ticks = np.arange(0, d["cum"].max() + tick, tick)
-    fig.update_layout(
-        **base_layout(t, 460),
-        xaxis=axis(t, title="개봉일", tickformat="%Y.%m"),
-        yaxis=axis(t, title="누적 관객 (명)", tickvals=ticks, ticktext=[man(v) for v in ticks], rangemode="tozero"),
+
+    # 점 — 위치에 따라 하늘색에서 황동색으로. 마우스를 올리면 영화명과 누적 관객
+    stops = [t["sky"], "#99a4b1", t["brass"]]
+    for i, ((x, y), (_, m)) in enumerate(zip(vertex, d.iterrows())):
+        is_peak = i == jump
+        dot = (
+            f'<circle class="dot dot-peak" cx="{x:.1f}" cy="{y:.1f}" r="6.5" />'
+            if is_peak
+            else f'<circle class="dot" cx="{x:.1f}" cy="{y:.1f}" r="3.6" fill="{hex_mix(stops, (x - left) / (right - left))}" />'
+        )
+        name = htmlib.escape(m["movieNm"])
+        lines = [
+            (name, "t1"),
+            (f'{m["openDt"]:%Y.%m.%d} 개봉 · 관객 {m["total_audi"]:,}명', "t2"),
+            (f'누적 {m["cum"]:,}명', "t3"),
+        ]
+        tw = max(len(m["movieNm"]) * 15 + 32, 250)
+        th = 86
+        tx = min(max(x - tw / 2, 6), W - tw - 6)
+        ty = y - th - 16 if y - th - 16 > 4 else y + 16
+        tip = f'<g class="tip"><rect x="{tx:.1f}" y="{ty:.1f}" width="{tw}" height="{th}" rx="12" />' + "".join(
+            f'<text class="{c}" x="{tx + 16:.1f}" y="{ty + 26 + k * 24:.1f}">{txt}</text>'
+            for k, (txt, c) in enumerate(lines)
+        ) + "</g>"
+        parts.append(f'<g class="pt"><circle class="hit" cx="{x:.1f}" cy="{y:.1f}" r="13" />{dot}{tip}</g>')
+
+    defs = f"""
+<defs>
+  <linearGradient id="a-plateau" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#2f353c" /><stop offset="62%" stop-color="#2f353c" /><stop offset="100%" stop-color="#1d2024" />
+  </linearGradient>
+  <linearGradient id="a-ridge" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#6f9dbb" /><stop offset="52%" stop-color="#99a4b1" /><stop offset="100%" stop-color="#c49c5f" />
+  </linearGradient>
+  <linearGradient id="a-deep" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#47738f" /><stop offset="52%" stop-color="#6d7784" /><stop offset="100%" stop-color="#90703f" />
+  </linearGradient>
+  <filter id="a-chroma" x="-8%" y="-30%" width="116%" height="160%" color-interpolation-filters="sRGB">
+    <feOffset in="SourceGraphic" dx="-1.1" dy="-0.5" result="s1" />
+    <feColorMatrix in="s1" type="matrix" result="c1" values="0 0 0 0 0.35  0 0 0 0 0.74  0 0 0 0 0.95  0 0 0 0.34 0" />
+    <feOffset in="SourceGraphic" dx="1.1" dy="0.5" result="s2" />
+    <feColorMatrix in="s2" type="matrix" result="c2" values="0 0 0 0 0.84  0 0 0 0 0.64  0 0 0 0 0.28  0 0 0 0.34 0" />
+    <feMerge><feMergeNode in="c1" /><feMergeNode in="c2" /><feMergeNode in="SourceGraphic" /></feMerge>
+  </filter>
+</defs>"""
+    svg = (
+        f'<div class="area-well"><svg class="c-area" viewBox="0 0 {W} {H}" role="img" '
+        f'aria-label="{genre} 누적 관객, {len(d)}편, 총 {man(peak)}명">{defs}{"".join(parts)}</svg></div>'
     )
-    fig.update_layout(margin=dict(l=84, r=16, t=16, b=56))
-    return fig, d, top
+    return svg, d, top
 
 
 # ---------------------------------------------------------------- 화면
@@ -812,7 +954,7 @@ with st.container(key="band-scatter"):
     )
 
 # 05 — 애니메이션 누적 관객
-fig_anim, anim, anim_top = animation_cumulative(movies, tokens)
+anim_svg, anim, anim_top = animation_svg(movies, tokens)
 with st.container(key="band-anim"):
     band_head(
         "05", "애니메이션 누적 관객",
@@ -820,7 +962,8 @@ with st.container(key="band-anim"):
         "점에 마우스를 올리면 영화명과 그때까지의 누적 관객이 보입니다.",
         "누적 관객 증가", f"애니메이션 {len(anim)}편 · 개봉일 순",
     )
-    chart(fig_anim, "anim")
+    html(ANIM_CSS)
+    html(anim_svg)
     cum_total = int(anim["cum"].iloc[-1])
     insight(
         "anim",
