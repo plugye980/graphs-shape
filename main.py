@@ -19,7 +19,6 @@ st.set_page_config(page_title=TITLE, layout="wide")
 
 # ---------------------------------------------------------------- 색 토큰
 TOKENS = {
-    "dark": {
         "page-a": "#1b1d21", "page-b": "#212429", "page-c": "#262a30",
         "surface": "#25282d", "well": "#1c1f23", "well-2": "#202327",
         "text-a": "#eef0f3", "text-b": "#c5cad1",
@@ -37,42 +36,15 @@ TOKENS = {
         "grid": "rgba(255, 255, 255, 0.06)",
         # 작은 장르(기타) — 무채색 단계
         "other-hi": "#6d7784", "other-lo": "#474f59",
-    },
-    "light": {
-        "page-a": "#f5fbff", "page-b": "#fbfeff", "page-c": "#eff7fe",
-        "surface": "#fafeff", "well": "#ffffff", "well-2": "#f2f6fb",
-        "text-a": "#2b3945", "text-b": "#42525f",
-        "body-a": "#53616c", "body-b": "#6c7a86",
-        "dim-a": "#8ea6b6", "dim-b": "#adc1d1",
-        "sky": "#3fa3d6", "sky-b": "#2b86b8", "sky-soft": "rgba(63, 163, 214, 0.18)",
-        "sky-text": "#217aa8", "sky-text-b": "#175d84",
-        "brass": "#c08f39", "brass-text": "#8d6a22", "brass-text-b": "#6f521a",
-        "brass-glow": "rgba(192, 143, 57, 0.46)",
-        "hi": "rgba(255, 255, 255, 1)", "hi-strong": "#ffffff", "lo": "rgba(124, 164, 204, 0.24)",
-        "lo-strong": "rgba(110, 152, 194, 0.34)",
-        "inset-lo": "rgba(116, 152, 192, 0.32)", "edge-lo": "rgba(112, 150, 192, 0.42)",
-        "wash-1": "rgba(115, 170, 210, 0.075)", "wash-2": "rgba(185, 150, 90, 0.035)",
-        "tag": "rgba(66, 104, 140, 0.14)",
-        "grid": "rgba(66, 104, 140, 0.10)",
-        "other-hi": "#7b8896", "other-lo": "#c2d7e9",
-    },
+        # 누적 그래프의 면 — 디자인의 plateau(tier) 톤
+        "tier-1": "#2f353c", "tier-edge": "#474f59",
 }
 
 # 장르 색 — 디자인 팔레트(하늘색·황동색 계열과 능선의 회청색) 안에서만 고른다.
 # 하늘색과 황동색 계열을 번갈아 놓아 이웃한 장르가 섞이지 않게 하고,
 # 편수가 많은 순서로 고정된 자리에 앉는다(순위가 아니라 장르를 따른다).
-SERIES = {
-    #        sky        brass      d1         d3         r2         sky-b      brass-b
-    "dark": ["#7bb9de", "#d3a869", "#47738f", "#90703f", "#99a4b1", "#5e93b9", "#b08a4f"],
-    "light": ["#3fa3d6", "#c08f39", "#42718f", "#7d6232", "#a8b8c5", "#2b86b8", "#9a7128"],
-}
-
-
-def pick_theme():
-    if "theme" not in st.session_state:
-        system = getattr(getattr(st.context, "theme", None), "type", None)
-        st.session_state.theme = "LIGHT" if system == "light" else "DARK"
-    return st.session_state.theme.lower()
+#          sky        brass      d1         d3         r2         sky-b      brass-b
+SERIES = ["#7bb9de", "#d3a869", "#47738f", "#90703f", "#99a4b1", "#5e93b9", "#b08a4f"]
 
 
 def inject_css(t):
@@ -260,14 +232,12 @@ header[data-testid="stHeader"] {{ background: transparent; }}
 [class*="st-key-well-"] [data-testid="stPlotlyChart"] {{ background: transparent; }}
 /* 도넛 조각은 판 위로 떠 있다 — 윗면에 빛, 아래에 그늘 */
 /* 데이터 면 — 선으로 가르지 않고, 윗면의 빛과 아래 그늘로 한 단 띄운다 */
-[class*="st-key-well-"] .barlayer .trace,
+.st-key-well-hist .barlayer .trace,
 [class*="st-key-well-"] .treemaplayer path.surface,
 [class*="st-key-well-"] .scatterlayer .trace {{
   filter: drop-shadow(0 -1px 0 var(--hi-strong)) drop-shadow(0 3px 4px var(--lo));
 }}
-[class*="st-key-well-genre"] .barlayer .trace {{
-  filter: drop-shadow(0 -1px 0 var(--hi-strong)) drop-shadow(0 5px 7px var(--lo-strong));
-}}
+
 .js-plotly-plot .hoverlayer .hovertext path {{
   filter: drop-shadow(0 6px 12px var(--lo));
 }}
@@ -356,40 +326,6 @@ header[data-testid="stHeader"] {{ background: transparent; }}
 
 [class*="st-key-band-"] {{ padding-bottom: clamp(5rem, 12vh, 8.5rem); }}
 
-/* 분할 선택(테마) — 바탕은 올라오고, 고른 칸만 내려간다 */
-.st-key-theme {{ margin-left: auto; }}
-.st-key-theme [role="radiogroup"] {{
-  gap: 0;
-  padding: 5px;
-  border-radius: 999px;
-  background: var(--surface);
-  box-shadow: var(--raise);
-  width: fit-content;
-  margin-left: auto;
-}}
-.st-key-theme button {{
-  border: 0 !important;
-  border-radius: 999px !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  min-height: 0;
-  padding: 0.45rem 1.1rem;
-  transition: color 0.45s var(--ease), box-shadow 0.45s var(--ease);
-}}
-.st-key-theme button p {{
-  font-family: var(--ui);
-  font-size: 0.76rem;
-  font-weight: 500;
-  letter-spacing: 0.18em;
-  color: var(--dim-a);
-}}
-.st-key-theme button:hover p {{ color: var(--body-a); }}
-.st-key-theme button[aria-checked="true"] {{
-  background: var(--well) !important;
-  box-shadow: var(--inset-sm) !important;
-}}
-.st-key-theme button[aria-checked="true"] p {{ color: var(--text-a); }}
-
 /* 푸터 */
 .foot {{
   display: flex;
@@ -475,10 +411,10 @@ def blend(c1, c2, r):
     return "#" + "".join(f"{round(x + (y - x) * r):02x}" for x, y in zip(a, b))
 
 
-def genre_colors(df, theme, t):
+def genre_colors(df, t):
     """편수 상위 장르는 고유 색, 나머지 작은 장르는 무채색 단계."""
     order = df["genre"].value_counts().index.tolist()
-    hues = SERIES[theme]
+    hues = SERIES
     small = order[len(hues):]
     colors = {g: hues[i] for i, g in enumerate(order[: len(hues)])}
     for i, g in enumerate(small):
@@ -530,54 +466,68 @@ def axis(t, **kw):
 
 
 # ---------------------------------------------------------------- 01 장르 도넛
-def tier_of(share):
-    """면적(비율)이 클수록 한 단 더 올라온다 — 4단."""
-    return 4 if share >= 0.20 else 3 if share >= 0.07 else 2 if share >= 0.03 else 1
-
-
 def genre_donut(df, t, order, colors):
+    """편수가 가장 많은 장르가 가장 높은 단, 그다음 장르가 한 단 아래 — 순위마다 한 단씩 내려간다."""
     counts = df["genre"].value_counts().reindex(order)
-    total = counts.sum()
-    hole, step = 1.0, 0.16  # 안쪽 반지름과 한 단의 높이
+    total, n = counts.sum(), len(counts)
+    hole, top_h, low_h = 1.0, 0.95, 0.30  # 안쪽 반지름, 가장 높은 단과 가장 낮은 단의 두께
+    step = (top_h - low_h) / max(n - 1, 1)
+
+    slices, start = [], 0.0
+    for rank, (g, c) in enumerate(counts.items()):
+        span = c / total * 360
+        slices.append((rank, g, c, start + span / 2, span))
+        start += span
 
     fig = go.Figure()
-    start = 0.0
-    for g, c in counts.items():
-        share = c / total
-        span = share * 360
-        tier = tier_of(share)
+    # 낮은 단부터 쌓아 올린다 — 높은 단이 나중에 그려져 이웃 위에 얹히고 그늘을 드리운다
+    for rank, g, c, mid, span in reversed(slices):
         fig.add_trace(
             go.Barpolar(
                 name=g,
-                r=[0.34 + step * tier],
+                r=[top_h - step * rank],
                 base=[hole],
-                theta=[start + span / 2],
+                theta=[mid],
                 width=[span],
                 marker=dict(color=colors[g], line=dict(width=0)),
-                customdata=[[c, share, tier]],
+                customdata=[[c, c / total, rank + 1]],
                 hovertemplate=f"<b>{g}</b><br>%{{customdata[0]}}편 · %{{customdata[1]:.1%}}<extra></extra>",
             )
         )
-        start += span
 
-    top = hole + 0.34 + step * 4
     fig.add_annotation(
         text=f"<span style='font-size:42px;color:{t['text-a']}'>{total}</span>"
         f"<span style='font-size:16px;color:{t['body-b']}'> 편</span>"
-        f"<br><span style='font-size:12px;letter-spacing:3px;color:{t['dim-a']}'>{len(counts)}개 장르</span>",
+        f"<br><span style='font-size:12px;letter-spacing:3px;color:{t['dim-a']}'>{n}개 장르</span>",
         x=0.5, y=0.5, xref="paper", yref="paper", showarrow=False,
     )
     fig.update_layout(
-        **base_layout(t, 560),
+        **base_layout(t, 580),
         polar=dict(
             bgcolor="rgba(0,0,0,0)",
             hole=0,
-            radialaxis=dict(visible=False, range=[0, top]),
+            radialaxis=dict(visible=False, range=[0, hole + top_h + 0.08]),
             angularaxis=dict(visible=False, rotation=90, direction="clockwise"),
         ),
         bargap=0,
     )
+    fig.update_layout(legend=dict(traceorder="reversed"))
     return fig
+
+
+def donut_depth_css(n):
+    """조각마다 높이에 맞는 그늘 — 높은 단일수록 그늘이 길고 짙다.
+    trace는 낮은 단부터 그려지므로 nth-child(1)이 가장 낮은 단이다."""
+    rules = []
+    for i in range(n):
+        h = i / max(n - 1, 1)  # 0 가장 낮은 단 → 1 가장 높은 단
+        y, blur, a = 1.5 + 9 * h, 2 + 10 * h, 0.35 + 0.4 * h
+        rules.append(
+            f".st-key-well-genre .barlayer .trace:nth-child({i + 1}) {{"
+            f" filter: drop-shadow(0 -1px 0 rgba(255,255,255,{0.05 + 0.1 * h:.3f}))"
+            f" drop-shadow(0 {y:.1f}px {blur:.1f}px rgba(0,0,0,{a:.2f})); }}"
+        )
+    return "<style>" + "\n".join(rules) + "</style>"
 
 
 # ---------------------------------------------------------------- 02 트리맵
@@ -628,7 +578,7 @@ def nice_width(max_value, max_bins=40):
     return 10_000_000
 
 
-def audience_hist(df, t, theme):
+def audience_hist(df, t):
     audi = df["total_audi"]
     width = nice_width(audi.max())
     edges = np.arange(0, audi.max() + width, width)
@@ -694,22 +644,57 @@ def screen_scatter(df, t, order, colors, log):
     return fig
 
 
+# ---------------------------------------------------------------- 05 애니메이션 누적 관객
+def animation_cumulative(df, t, genre="애니메이션"):
+    d = df[df["genre"] == genre].sort_values(["openDt", "total_audi"]).reset_index(drop=True)
+    d["cum"] = d["total_audi"].cumsum()
+    jump = int(d["total_audi"].idxmax())  # 한 번에 가장 크게 오른 계단
+
+    fig = go.Figure()
+    # 계단 면 — 개봉일마다 그 영화의 총 관객만큼 한 단 올라간다
+    fig.add_trace(
+        go.Scatter(
+            x=d["openDt"], y=d["cum"], mode="lines", line_shape="hv",
+            line=dict(color=t["sky"], width=2.4),
+            fill="tozeroy", fillcolor=t["tier-1"],
+            hoverinfo="skip", showlegend=False,
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=d["openDt"], y=d["cum"], mode="markers", showlegend=False,
+            marker=dict(
+                size=[13 if i == jump else 7 for i in range(len(d))],
+                color=[t["brass"] if i == jump else t["sky"] for i in range(len(d))],
+                line=dict(width=0),
+            ),
+            customdata=np.stack([d["movieNm"], d["openDt"].dt.strftime("%Y.%m.%d"), d["total_audi"]], axis=-1),
+            hovertemplate="<b>%{customdata[0]}</b><br>개봉 %{customdata[1]}"
+            "<br>관객 %{customdata[2]:,}명 · 누적 %{y:,}명<extra></extra>",
+        )
+    )
+    top = d.loc[jump]
+    fig.add_annotation(
+        x=top["openDt"], y=top["cum"], text=f"{top['movieNm']}  +{man(top['total_audi'])}명",
+        showarrow=False, xanchor="right", yanchor="bottom", xshift=-10, yshift=6,
+        font=dict(color=t["brass-text"], size=14),
+    )
+    tick = nice_width(d["cum"].max(), 6)
+    ticks = np.arange(0, d["cum"].max() + tick, tick)
+    fig.update_layout(
+        **base_layout(t, 460),
+        xaxis=axis(t, title="개봉일", tickformat="%Y.%m"),
+        yaxis=axis(t, title="누적 관객 (명)", tickvals=ticks, ticktext=[man(v) for v in ticks], rangemode="tozero"),
+    )
+    fig.update_layout(margin=dict(l=84, r=16, t=16, b=56))
+    return fig, d, top
+
+
 # ---------------------------------------------------------------- 화면
-theme = pick_theme()
-tokens = TOKENS[theme]
+tokens = TOKENS
 inject_css(tokens)
 
-top_l, top_r = st.columns([3, 2], vertical_alignment="center")
-with top_l:
-    html('<p class="fx mark">영화 데이터 그래프 도감<span class="mark-sub">KOBIS · BOX OFFICE TOP 10</span></p>')
-with top_r:
-    st.segmented_control(
-        "테마", ["DARK", "LIGHT"], key="theme", label_visibility="collapsed",
-        selection_mode="single",
-    )
-    if st.session_state.theme is None:  # 고른 칸을 다시 눌러 비워진 경우
-        st.session_state.theme = theme.upper()
-        st.rerun()
+html('<p class="fx mark">영화 데이터 그래프 도감<span class="mark-sub">KOBIS · BOX OFFICE TOP 10</span></p>')
 
 try:
     movies = load_data(DATA_URL)
@@ -717,7 +702,7 @@ except Exception as err:  # 네트워크 오류 등
     st.error(f"데이터를 불러오지 못했습니다: {err}")
     st.stop()
 
-order, colors = genre_colors(movies, theme, tokens)
+order, colors = genre_colors(movies, tokens)
 first, last = movies["openDt"].min(), movies["openDt"].max()
 html(
     f"""
@@ -740,6 +725,7 @@ with st.container(key="band-genre"):
         "조각에 마우스를 올리면 편수와 비율이 보입니다.",
         "장르 분포", "도넛 · 편수 기준",
     )
+    html(donut_depth_css(len(order)))
     chart(genre_donut(movies, tokens, order, colors), "genre")
     g1, g2 = counts.index[0], counts.index[1]
     insight(
@@ -772,7 +758,7 @@ with st.container(key="band-tree"):
     )
 
 # 03 — 총 관객 히스토그램
-fig_hist, h = audience_hist(movies, tokens, theme)
+fig_hist, h = audience_hist(movies, tokens)
 with st.container(key="band-hist"):
     band_head(
         "03", "총 관객의 분포",
@@ -823,6 +809,24 @@ with st.container(key="band-scatter"):
         f"전체로 보면 관계가 약하지만(로그 눈금 상관계수 {log_r(movies):.2f}), 개봉일 스크린이 100개 이상인 "
         f"{len(wide)}편만 보면 스크린이 많을수록 총 관객도 많은 뚜렷한 경향({log_r(wide):.2f})이 있고, "
         f"'{top_movie['movieNm']}'처럼 적은 스크린({top_movie['first_scrn']}개)으로 시작해 크게 흥행한 영화도 있습니다.",
+    )
+
+# 05 — 애니메이션 누적 관객
+fig_anim, anim, anim_top = animation_cumulative(movies, tokens)
+with st.container(key="band-anim"):
+    band_head(
+        "05", "애니메이션 누적 관객",
+        "애니메이션 영화의 총 관객을 개봉일 순서대로 더해 갔습니다. 계단 한 칸이 영화 한 편이고, "
+        "점에 마우스를 올리면 영화명과 그때까지의 누적 관객이 보입니다.",
+        "누적 관객 증가", f"애니메이션 {len(anim)}편 · 개봉일 순",
+    )
+    chart(fig_anim, "anim")
+    cum_total = int(anim["cum"].iloc[-1])
+    insight(
+        "anim",
+        f"애니메이션 {len(anim)}편의 누적 관객은 {man(cum_total)}명이며, 그중 "
+        f"'{anim_top['movieNm']}' 한 편({anim_top['openDt']:%Y.%m.%d} 개봉)이 "
+        f"{anim_top['total_audi'] / cum_total:.0%}를 차지해 누적 곡선이 그 시점에 가장 크게 뛰어오릅니다.",
     )
 
 stair(even=True)
