@@ -7,7 +7,9 @@
 """
 
 import html as htmlib
+import json
 import re
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -267,6 +269,37 @@ header[data-testid="stHeader"] {{ background: transparent; }}
   line-height: 1.8;
   background-image: linear-gradient(150deg, var(--text-a), var(--text-b));
 }}
+/* 적는 자리 — 한 단 파인 면 */
+[class*="st-key-note-"] [data-testid="stTextAreaRootElement"] {{
+  border: 0 !important;
+  background: var(--well-2) !important;
+  border-radius: 14px;
+  box-shadow: var(--inset-sm);
+}}
+[class*="st-key-note-"] [data-testid="stTextAreaRootElement"] *,
+[class*="st-key-note-"] textarea {{ background: transparent !important; background-color: transparent !important; }}
+[class*="st-key-note-"] textarea {{
+  font-family: var(--ui) !important;
+  font-size: clamp(1.02rem, 1.5vw, 1.15rem) !important;
+  font-weight: 400;
+  line-height: 1.8 !important;
+  color: var(--text-b) !important;
+  -webkit-text-fill-color: var(--text-b);
+  caret-color: var(--sky);
+  resize: none !important;
+  field-sizing: content;
+  height: auto !important;
+  min-height: 4.2rem;
+  padding: 1rem 1.2rem !important;
+}}
+[class*="st-key-note-"] textarea::placeholder {{ color: var(--dim-a); -webkit-text-fill-color: var(--dim-a); }}
+[class*="st-key-note-"] [data-testid="stTextAreaRootElement"]:focus-within {{
+  box-shadow: var(--inset-sm), 0 0 0 3px var(--sky-soft);
+}}
+[class*="st-key-note-"] [data-testid="InputInstructions"] {{ display: none; }}
+[class*="st-key-note-"] [data-testid="stTextAreaRootElement"] {{ height: auto !important; }}
+[class*="st-key-note-"] {{ margin-top: 0.9rem; }}
+
 /* 그래프 아래 읽을거리 */
 .readout {{
   display: grid;
@@ -359,7 +392,7 @@ def band_head(no, title, lede, cap_title, cap_note):
     )
 
 
-# 그래프마다 '이 그래프로 알 수 있는 것' 한 문장
+# 그래프마다 '이 그래프로 알 수 있는 것' 기본 문장 (고쳐 쓰면 notes.json에 저장된 문장이 우선한다)
 INSIGHTS = {
     "genre": "애니메이션(57편)과 드라마(54편)가 전체 216편 중 51%를 차지해, "
     "두 장르가 박스오피스 10위권 영화의 절반을 넘는다",
@@ -374,10 +407,37 @@ INSIGHTS = {
 }
 
 
+NOTES_PATH = Path(__file__).with_name("notes.json")
+
+
+def load_notes():
+    try:
+        return json.loads(NOTES_PATH.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def save_note(key):
+    """고쳐 쓴 문장을 파일에 남긴다 — 새 창을 열어도, 앱을 다시 띄워도 그대로 남는다."""
+    notes = load_notes()
+    notes[key] = st.session_state[f"note-{key}"]
+    tmp = NOTES_PATH.with_suffix(".tmp")
+    tmp.write_text(json.dumps(notes, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(NOTES_PATH)
+
+
 def insight(key):
-    html(
-        '<div class="insight"><p class="fx insight-label">이 그래프로 알 수 있는 것</p>'
-        f'<p class="fx insight-text">{htmlib.escape(INSIGHTS[key])}</p></div>'
+    """이 그래프로 알 수 있는 것 — 저장된 문장이 있으면 그것을, 없으면 데이터에서 뽑은 문장을 보여 준다."""
+    html('<div class="insight"><p class="fx insight-label">이 그래프로 알 수 있는 것</p></div>')
+    st.text_area(
+        "이 그래프로 알 수 있는 것",
+        value=load_notes().get(key, INSIGHTS[key]),
+        key=f"note-{key}",
+        label_visibility="collapsed",
+        placeholder="이곳에 한 문장을 적어 주세요.",
+        height="content",
+        on_change=save_note,
+        args=(key,),
     )
 
 
