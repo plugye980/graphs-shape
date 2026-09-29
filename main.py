@@ -7,6 +7,7 @@
 """
 
 import html as htmlib
+import re
 
 import numpy as np
 import pandas as pd
@@ -150,7 +151,7 @@ header[data-testid="stHeader"] {{ background: transparent; }}
 .display .line + .line {{ text-indent: 0.5em; }}
 .lede {{
   margin-top: var(--gap-2);
-  max-width: 32em;
+  max-width: 46em;
   font-size: clamp(1rem, 1.4vw, 1.12rem);
   font-weight: 300;
   line-height: 1.95;
@@ -366,8 +367,14 @@ def stair(even=False):
     html(f'<div class="stair{" even" if even else ""}" aria-hidden="true"><span></span><span></span><span></span></div>')
 
 
+def sentences(text):
+    """설명은 문장이 끝날 때마다 줄을 바꾼다 — 낱말 중간에서 어색하게 잘리지 않게."""
+    return "<br>".join(re.split(r"(?<=[.?!])\s+", text.strip()))
+
+
 def band_head(no, title, lede, cap_title, cap_note):
     stair(even=int(no) % 2 == 0)
+    lede = sentences(lede)
     html(
         f"""
 <div class="band-head">
@@ -914,7 +921,7 @@ with st.container(key="band-hist"):
 <div class="readout">
   <div>
     <p class="fx k">영화가 몰린 구간</p>
-    <p class="fx v">대부분의 영화는 <b class="acc">{h['range']}</b> 구간에 몰려 있습니다.
+    <p class="fx v">대부분의 영화는 <b class="acc">{h['range']}</b> 구간에 몰려 있습니다.<br>
     {len(movies)}편 가운데 {h['n']}편({h['share']:.1%})입니다.</p>
   </div>
   <div>
